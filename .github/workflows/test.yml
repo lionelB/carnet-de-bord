@@ -11,6 +11,8 @@ on:
       - opened
       - synchronize
       - reopened
+
+      ##tests
 env:
   POETRY_VERSION: 1.2.0
   PYTHON_VERSION: 3.10.6
