@@ -3,16 +3,11 @@ name: Test
 on:
   push:
     branches:
-      - "**"
+      - "main"
     tags:
       - "!v*"
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
 
-      ##tests
 env:
   POETRY_VERSION: 1.2.0
   PYTHON_VERSION: 3.10.6
@@ -23,87 +18,118 @@ concurrency:
 
 jobs:
   ##############################################################################
+  ## Full linting/checking running on all branches
+  ##############################################################################
+  pre-commit:
+    name: Run full linting on project using pre-commit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Setup python for pre-commit
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{env.PYTHON_VERSION}}
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: "**/package-lock.json"
+
+      - name: Install dependencies
+        run: |
+          npm ci --prefix app
+          npm run sync --prefix app
+          npm ci --prefix e2e
+          pip install pre-commit
+      - name: Run linting
+        # TODO: precommit does not run svelte-check
+        run: pre-commit run --all-files
+
+  ##############################################################################
   ## Python backend tests
   ##############################################################################
-  # pytest:
-  #   name: Run pytest tests
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+  pytest:
+    name: Run pytest tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-  #     - name: Install Hasura CLI
-  #       uses: ./.github/actions/hasura-cli
+      - name: Install Hasura CLI
+        uses: ./.github/actions/hasura-cli
 
-  #     - name: Setup Python
-  #       uses: actions/setup-python@v4
-  #       with:
-  #         python-version: ${{env.PYTHON_VERSION}}
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{env.PYTHON_VERSION}}
 
-  #     - name: Setup Poetry
-  #       uses: abatilo/actions-poetry@v2.1.6
-  #       with:
-  #         poetry-version: ${{env.POETRY_VERSION}}
+      - name: Setup Poetry
+        uses: abatilo/actions-poetry@v2.1.6
+        with:
+          poetry-version: ${{env.POETRY_VERSION}}
 
-  #     - name: Install dependencies
-  #       working-directory: ./backend
-  #       run: poetry install
+      - name: Install dependencies
+        working-directory: ./backend
+        run: poetry install
 
-  #     - name: Run pytest
-  #       run: |
-  #         cp .env.test.sample .env.test
-  #         ./scripts/launch_tests.sh python
+      - name: Run pytest
+        run: |
+          cp .env.test.sample .env.test
+          ./scripts/launch_tests.sh python
 
   ##############################################################################
   ## End To End Tests
   ##############################################################################
-  # e2e:
-  #   name: Run CodeceptJS tests
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+  e2e:
+    name: Run CodeceptJS tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-  #     - name: Setup NodeJS
-  #       uses: actions/setup-node@v3
-  #       with:
-  #         node-version-file: ".nvmrc"
-  #         cache: npm
-  #         cache-dependency-path: "**/package-lock.json"
+      - name: Setup NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: "**/package-lock.json"
 
-  #     - name: Install dependencies
-  #       run: |
-  #         npm ci --prefix e2e
-  #         npm ci --prefix app
+      - name: Install dependencies
+        run: |
+          npm ci --prefix e2e
+          npm ci --prefix app
 
-  #     - name: Install Hasura CLI
-  #       uses: ./.github/actions/hasura-cli
+      - name: Install Hasura CLI
+        uses: ./.github/actions/hasura-cli
 
-  #     - name: Setup Python
-  #       uses: actions/setup-python@v4
-  #       with:
-  #         python-version: ${{env.PYTHON_VERSION}}
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{env.PYTHON_VERSION}}
 
-  #     - name: Setup Poetry
-  #       uses: abatilo/actions-poetry@v2.1.6
-  #       with:
-  #         poetry-version: ${{env.POETRY_VERSION}}
+      - name: Setup Poetry
+        uses: abatilo/actions-poetry@v2.1.6
+        with:
+          poetry-version: ${{env.POETRY_VERSION}}
 
-  #     - name: Install Python dependencies
-  #       working-directory: ./backend
-  #       run: poetry install
+      - name: Install Python dependencies
+        working-directory: ./backend
+        run: poetry install
 
-  #     - name: Run test e2e
-  #       run: |
-  #         cp .env.test.sample .env.test
-  #         ./scripts/launch_tests.sh e2e
+      - name: Run test e2e
+        run: |
+          cp .env.test.sample .env.test
+          ./scripts/launch_tests.sh e2e
 
-  #     - name: Copy artifact
-  #       if: failure()
-  #       uses: actions/upload-artifact@v3
-  #       with:
-  #         name: screenshot
-  #         path: e2e/output
+      - name: Copy artifact
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshot
+          path: e2e/output
 
   ##############################################################################
   ## Functional Tests (endpoints & hasura)
